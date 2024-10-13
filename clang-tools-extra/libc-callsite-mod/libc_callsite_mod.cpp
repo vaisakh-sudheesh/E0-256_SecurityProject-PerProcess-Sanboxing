@@ -1,3 +1,10 @@
+/**
+ * @file libc_callsite_mod.cpp
+ * @brief Tool to modify libc callsites in a C program
+ *
+ * @author Vaisakh P S <vaisakhp@iisc.ac.in>
+ *
+ */
 #include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -17,7 +24,14 @@ using namespace clang::tooling;
 #include <map>
 #include <string>
 
-
+// -----------------------------------------------------------------------------------------------
+// Utility classes
+// -----------------------------------------------------------------------------------------------
+/**
+ * @brief Class to read a file containing key-value pairs and store them in a map
+ *
+ * @details The file should contain one key-value pair per line, with the key and value separated by a colon.
+ */
 class FileToMapReader {
 private:
   std::map<std::string, int> stringMap;
@@ -58,21 +72,31 @@ public:
   }
 };
 
+// -----------------------------------------------------------------------------------------------
+// Global variables
+// -----------------------------------------------------------------------------------------------
+
 Rewriter rewriter;
 FileToMapReader fileToMapReader;
 
-class ExampleVisitor : public RecursiveASTVisitor<ExampleVisitor> {
+// -----------------------------------------------------------------------------------------------
+// AST Visitor
+// -----------------------------------------------------------------------------------------------
+/**
+ * @brief AST visitor to modify the AST
+ */
+class E0256Visitor : public RecursiveASTVisitor<E0256Visitor> {
 private:
-    ASTContext *astContext; 
+    ASTContext *astContext;
 
 public:
-    explicit ExampleVisitor(CompilerInstance *CI) 
+    explicit E0256Visitor(CompilerInstance *CI)
       : astContext(&(CI->getASTContext())) // initialize private members
     {
         rewriter.setSourceMgr(astContext->getSourceManager(), astContext->getLangOpts());
     }
 
-    virtual bool VisitStmt(Stmt *st) {  
+    virtual bool VisitStmt(Stmt *st) {
         if (CallExpr *call = dyn_cast<CallExpr>(st)) {
             if (FunctionDecl *func = call->getDirectCallee()) {
               std::string funcName = func->getNameInfo().getName().getAsString();
@@ -89,31 +113,54 @@ public:
     }
 };
 
+// -----------------------------------------------------------------------------------------------
+// ASTConsumer
+// -----------------------------------------------------------------------------------------------
 
 /**
  * @brief ASTConsumer to modify the AST
  */
-class MyASTConsumer : public ASTConsumer {
+class E0256ASTConsumer : public ASTConsumer {
 private:
-    ExampleVisitor *visitor; 
+    /**
+     * @brief AST visitor to modify the AST
+     */
+    E0256Visitor *visitor;
 public:
-  MyASTConsumer(CompilerInstance *CI) : visitor(new ExampleVisitor(CI)) {
+
+  /**
+   * @brief Construct a new E0256ASTConsumer object
+   * @param CI
+   */
+  E0256ASTConsumer(CompilerInstance *CI) : visitor(new E0256Visitor(CI)) {
   }
 
+  /**
+   * @brief Override the HandleTranslationUnit method to modify the AST
+   */
   void HandleTranslationUnit(ASTContext &Context) override {
     visitor->TraverseDecl(Context.getTranslationUnitDecl());
   }
 };
 
+// -----------------------------------------------------------------------------------------------
+// Tooling
+// -----------------------------------------------------------------------------------------------
 /**
  * @brief Frontend action to modify the AST
  */
-class MyFrontendAction : public ASTFrontendAction {
+class E0256FrontendAction : public ASTFrontendAction {
 public:
-  MyFrontendAction() {}
+  /**
+   * @brief Construct a new E0256FrontendAction object
+   */
+  E0256FrontendAction() {}
 
+  /**
+   * @brief Override the CreateASTConsumer method to create an ASTConsumer
+   */
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI, StringRef file) override {
-    return std::make_unique<MyASTConsumer>(&CI);
+    return std::make_unique<E0256ASTConsumer>(&CI);
   }
 
 };
@@ -122,7 +169,7 @@ static llvm::cl::OptionCategory MyToolCategory("libc-callsite-mod-tool options")
 
 /**
  * @brief Main entry point for the tool
- * 
+ *
  */
 int main(int argc, const char **argv) {
     int result = 0;
@@ -140,6 +187,8 @@ int main(int argc, const char **argv) {
     // } else {
     //   llvm::errs() << "noprintf is not in map\n";
     // }
+
+    // Process command line arguments
     auto ExpectedParser = CommonOptionsParser::create(
         argc, argv, llvm::cl::getGeneralCategory(), llvm::cl::ZeroOrMore,
         "Clang-based library call site modifier tool");
@@ -149,10 +198,12 @@ int main(int argc, const char **argv) {
     }
     CommonOptionsParser &Options = ExpectedParser.get();
 
+    // Create a Clang Tool instance and run the frontend action
     ClangTool Tool(Options.getCompilations(), Options.getSourcePathList());
+    result = Tool.run(newFrontendActionFactory<E0256FrontendAction>().get());
 
-    result = Tool.run(newFrontendActionFactory<MyFrontendAction>().get());
-
+    // Print the modified source code
+    // TODO: Write to a file instead of printing to stderr for later compilation stage to proceed.
     for (const auto &File : Options.getSourcePathList()) {
       auto EntryOrErr = Tool.getFiles().getFile(File);
       if (EntryOrErr) {
