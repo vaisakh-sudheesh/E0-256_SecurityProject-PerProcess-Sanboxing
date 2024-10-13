@@ -20,7 +20,7 @@ using namespace clang::tooling;
 
 class FileToMapReader {
 private:
-  std::map<std::string, bool> stringMap;
+  std::map<std::string, int> stringMap;
 
 public:
   bool readFileToMap(const std::string &filePath) {
@@ -32,7 +32,14 @@ public:
 
     std::string line;
     while (std::getline(file, line)) {
-      stringMap[line] = true;
+      size_t colonPos = line.find(':');
+      if (colonPos != std::string::npos) {
+        std::string key = line.substr(colonPos + 1);
+        int value = std::stoi(line.substr(0, colonPos));
+        stringMap[key] = value;
+      } else {
+        llvm::errs() << "Invalid line format: " << line << "\n";
+      }
     }
     file.close();
     return true;
@@ -40,6 +47,14 @@ public:
 
   bool isStringInMap(const std::string &str) const {
     return stringMap.find(str) != stringMap.end();
+  }
+
+  int getValueFromMap(const std::string &str) const {
+    auto it = stringMap.find(str);
+    if (it != stringMap.end()) {
+      return it->second;
+    }
+    return -1; // or some other sentinel value indicating not found
   }
 };
 
@@ -64,7 +79,7 @@ public:
               if (fileToMapReader.isStringInMap(funcName)) {
                 llvm::errs() << "** Encountered libc function call " <<funcName<<"\n";
                 SourceLocation startLoc = call->getBeginLoc();
-                rewriter.InsertText(startLoc, "dummy_syscall();\n", true, true);
+                rewriter.InsertText(startLoc, "dummy_syscall(" + std::to_string(fileToMapReader.getValueFromMap(funcName)) + ");\n", true, true);
               } else {
                 // llvm::errs() << "Non-libc Function call " <<funcName<<" not in libc\n";
               }
@@ -114,6 +129,17 @@ int main(int argc, const char **argv) {
     llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
     fileToMapReader.readFileToMap("/home/vaisakhps/developer/E0256-Security/Attempt-2/build-dir/llvm-project-llvmorg-18.1.8/libc_functions.txt");
 
+    // if (fileToMapReader.isStringInMap("printf")) {
+    //   llvm::errs() << "printf is in map , idx"<< fileToMapReader.getValueFromMap("printf") <<"\n";
+    // } else {
+    //   llvm::errs() << "printf is not in map\n";
+    // }
+
+    // if (fileToMapReader.isStringInMap("noprintf")) {
+    //   llvm::errs() << "printf is in map , idx"<< fileToMapReader.getValueFromMap("noprintf") <<"\n";
+    // } else {
+    //   llvm::errs() << "noprintf is not in map\n";
+    // }
     auto ExpectedParser = CommonOptionsParser::create(
         argc, argv, llvm::cl::getGeneralCategory(), llvm::cl::ZeroOrMore,
         "Clang-based library call site modifier tool");

@@ -63,7 +63,7 @@ void extractFunctionNames(const char *libPath, const char *outputFile) {
         if (GELF_ST_TYPE(sym.st_info) == STT_FUNC) {
             const char *name = elf_strptr(elf, shdr.sh_link, sym.st_name);
             if (name) {
-                outFile << name << std::endl;
+                outFile << i << ":" << name << std::endl;
             }
         }
     }
