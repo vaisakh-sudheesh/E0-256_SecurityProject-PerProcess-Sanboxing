@@ -345,7 +345,7 @@ The key pros/cons of the mentioned approach are listed below:
 ├── CMakeLists.txt
 └── README.md
 
-
+```
 
 ## Build Instructions
 
@@ -385,7 +385,7 @@ $ sudo ./llvm.sh 19
 
 The build system has been setup to download all the necessary source code, patch and integrate modules in them and build the binaries.
 
-```shell
+```bash
 $ mkdir build-dir && cd build-dir
 
 ## Setting up the source tree using download rules
@@ -398,7 +398,7 @@ $ cmake --build .
 
 After this build, the artifacts will be available in `<Project-root-dir>/out-dir`
 
-```shell
+```bash
 .
 ├── asm                                       ## Intermediate output during compilation and final linking.
 │   ├── conditional_ifelse.c.s
